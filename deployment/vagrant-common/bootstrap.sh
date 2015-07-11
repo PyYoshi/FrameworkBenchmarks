@@ -2,32 +2,32 @@
 #
 # Prepares a virtual machine for running TFB
 #
-# Intentionally uses ~, $HOME, and $USER so that the 
+# Intentionally uses ~, $HOME, and $USER so that the
 # same script can work for VirtualBox (username vagrant)
 # and Amazon (username ubuntu)
 
-# Add everything passed in the first argument to our 
-# local environment. This is a hack to let us use 
-# environment variables defined on the host inside the 
+# Add everything passed in the first argument to our
+# local environment. This is a hack to let us use
+# environment variables defined on the host inside the
 # guest machine
-while read -r line; do  
-  export $line; 
+while read -r line; do
+  export $line;
 done <<< "$1"
 
 # Store any custom variables used at launch, in case someone forgets
 # what this instance is (e.g. SSD or HDD, etc)
 echo "$1" > ~/.tfb_launch_options
 
-# Are we installing the server machine, the client machine, 
-# the database machine, or all machines? 
-# Valid values: 
+# Are we installing the server machine, the client machine,
+# the database machine, or all machines?
+# Valid values:
 #    - all      (we are setting up a development environment)
 #    - database (we are setting up the database machine)
 #    - client   (we are setting up the client machine for load generation)
 #    - server   (we are setting up the machine that will host frameworks)
 ROLE=${2:-all}
 
-# Set a number of variables by either pulling them from 
+# Set a number of variables by either pulling them from
 # the existing environment or using the default values
 # I'm renaming them to indicate that (in this script only)
 # the values are provisioner agnostic
@@ -40,8 +40,8 @@ if [ "$ROLE" == "all" ]; then
   DATABA_IP=127.0.0.1
 fi
 
-GH_REPO=${TFB_AWS_REPO_SLUG:-TechEmpower/FrameworkBenchmarks}
-GH_BRANCH=${TFB_AWS_REPO_BRANCH:-master}
+GH_REPO=${TFB_REPO_SLUG:-TechEmpower/FrameworkBenchmarks}
+GH_BRANCH=${TFB_REPO_BRANCH:-master}
 
 # A shell provisioner is called multiple times
 if [ ! -e "~/.firstboot" ]; then
@@ -60,7 +60,7 @@ if [ ! -e "~/.firstboot" ]; then
   echo "export TFB_CLIENT_USER=$USER" >> ~/.bash_profile
   echo "export TFB_DATABASE_USER=$USER" >> ~/.bash_profile
   echo "export TFB_RUNNER_USER=testrunner" >> ~/.bash_profile
-  echo "export FWROOT=$HOME/FrameworkBenchmarks" >> ~/.bash_profile 
+  echo "export FWROOT=$HOME/FrameworkBenchmarks" >> ~/.bash_profile
   source ~/.bash_profile
 
   # Ensure their host-local benchmark.cfg is not picked up on the remote host
@@ -69,7 +69,7 @@ if [ ! -e "~/.firstboot" ]; then
     mv ~/FrameworkBenchmarks/benchmark.cfg ~/FrameworkBenchmarks/benchmark.cfg.bak
   fi
 
-  # Setup hosts 
+  # Setup hosts
   echo "Setting up convenience hosts entries"
   echo $DATABA_IP TFB-database | sudo tee --append /etc/hosts
   echo $CLIENT_IP TFB-client   | sudo tee --append /etc/hosts
@@ -88,7 +88,7 @@ if [ ! -e "~/.firstboot" ]; then
     myhost=TFB-${ROLE}
     echo $myhost | sudo tee --append /etc/hostname
     sudo hostname $myhost
-    echo Updated /etc/hosts file to be: 
+    echo Updated /etc/hosts file to be:
     cat /etc/hosts
   fi
 
@@ -109,9 +109,9 @@ if [ ! -e "~/.firstboot" ]; then
     echo "Removing your current results folder to avoid interference"
     rm -rf $FWROOT/installs $FWROOT/results
 
-    # vboxfs does not support chown or chmod, which we need. 
+    # vboxfs does not support chown or chmod, which we need.
     # We therefore bind-mount a normal linux directory so we can
-    # use these operations. This enables us to 
+    # use these operations. This enables us to
     # use `chown -R testrunner:testrunner $FWROOT/installs` later
     echo "Mounting over your installs folder"
     mkdir -p /tmp/TFB_installs
@@ -136,7 +136,7 @@ if [ ! -e "~/.firstboot" ]; then
   sudo -u testrunner chmod 600 /home/testrunner/.ssh/authorized_keys
   # Enable remote SSH access if we are running production environment
   # Note : this are always copied from the local working copy using a
-  #        file provisioner. While they exist in the git clone we just 
+  #        file provisioner. While they exist in the git clone we just
   #        created (so we could use those), we want to let the user
   #        have the option of replacing the keys in their working copy
   #        and ensuring that only they can ssh into the machines
@@ -155,7 +155,7 @@ if [ ! -e "~/.firstboot" ]; then
     chmod 600 ~/.ssh/client ~/.ssh/database
   fi
 
-  # Setup 
+  # Setup
   echo "Installing $ROLE software"
   cd $FWROOT
   toolset/run-tests.py --verbose --install $ROLE --install-only --test ''

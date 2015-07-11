@@ -1,9 +1,9 @@
 
 def provision_bootstrap(config, role)
-  # Find all environment variables that begin with 
-  # TFB_* and pass them as an argument. This is a hack to 
-  # let our bootstrap script use environment variables that 
-  # were originally defined on the host 
+  # Find all environment variables that begin with
+  # TFB_* and pass them as an argument. This is a hack to
+  # let our bootstrap script use environment variables that
+  # were originally defined on the host
   # Skip any potentially sensitive variables
   env_arg = ""
   skip= ['TFB_AWS_ACCESS_KEY', 'TFB_AWS_SECRET_KEY', 'TFB_AWS_KEY_NAME', 'TFB_AWS_KEY_PATH']
@@ -17,7 +17,7 @@ def provision_bootstrap(config, role)
   end
   env_arg = env_arg.strip
 
-  # TODO this will break if the environment contains the ' delimiter, 
+  # TODO this will break if the environment contains the ' delimiter,
   # so at some point we need to escape the ' character here and unescape
   # it in bootstrap.sh
   config.vm.provision "shell" do |sh|
@@ -29,7 +29,7 @@ end
 
 def provider_aws(config, role, ip_address='172.16.0.16')
   config.vm.provider :aws do |aws, override|
-    aws.access_key_id = ENV['TFB_AWS_ACCESS_KEY'] 
+    aws.access_key_id = ENV['TFB_AWS_ACCESS_KEY']
     aws.secret_access_key = ENV['TFB_AWS_SECRET_KEY']
     aws.keypair_name = ENV['TFB_AWS_KEY_NAME']
     override.ssh.private_key_path = ENV['TFB_AWS_KEY_PATH']
@@ -37,31 +37,31 @@ def provider_aws(config, role, ip_address='172.16.0.16')
     # Use a boilerplate box - this will be replaced by the AMI
     override.vm.box = "dummy"
     override.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
-    
+
     # From http://cloud-images.ubuntu.com/trusty/current/
     # This is 64-bit Ubuntu 14.04 US east EBS
-    # See http://cloud-images.ubuntu.com/vagrant/trusty/current/ 
-    # for comparison to the Ubuntu Vagrant VirtualBox boxes 
+    # See http://cloud-images.ubuntu.com/vagrant/trusty/current/
+    # for comparison to the Ubuntu Vagrant VirtualBox boxes
     aws.ami = "ami-f6bf659e"
     override.ssh.username = "ubuntu"
-    
+
     aws.private_ip_address = ip_address
     aws.associate_public_ip = true
     aws.region = ENV.fetch('TFB_AWS_REGION', 'us-east-1')
     aws.subnet_id = ENV['TFB_AWS_SUBNET']  # subnet-2737230f for me
-    aws.security_groups = [ENV['TFB_AWS_SEC_GROUP']] # sg-871240e2 
+    aws.security_groups = [ENV['TFB_AWS_SEC_GROUP']] # sg-871240e2
     aws.instance_type = ENV.fetch('TFB_AWS_EC2_TYPE', 'm1.large')
 
     aws.tags = {
       'Project' => 'FrameworkBenchmarks',
       'TFB_role' => role
      }
-    
+
     # Setup disk. Defauly is 15GB General Purpose SSD
-    # Double the default volume size, as we download and 
+    # Double the default volume size, as we download and
     # install a *lot* of stuff
     # Documentation is at http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-blockdev-template.html
-    aws.block_device_mapping = [{ 'DeviceName' => '/dev/sda1', 
+    aws.block_device_mapping = [{ 'DeviceName' => '/dev/sda1',
       'Ebs.VolumeSize' => 15 ,
       'Ebs.DeleteOnTermination' => ENV.fetch('TFB_AWS_EBS_DELETE', true),
       'Ebs.VolumeType' => ENV.fetch('TFB_AWS_EBS_TYPE', 'gp2')
@@ -79,7 +79,7 @@ end
 
 def provider_virtualbox(config, role, ip_address='172.16.0.16')
   config.vm.network "private_network", ip: ip_address
-  
+
   config.vm.provider :virtualbox do |vb, override|
     override.vm.hostname = "TFB-#{role}"
 
@@ -88,9 +88,9 @@ def provider_virtualbox(config, role, ip_address='172.16.0.16')
 
     # Value values are precise, trusty, etc
     code = ENV.fetch('TFB_VB_CODE','trusty')
-    
+
     override.vm.box = "ubuntu/" + code + arch
-    
+
     if ENV.fetch('TFB_SHOW_VM', false)
       vb.gui = true
     end
@@ -104,14 +104,14 @@ def provider_virtualbox(config, role, ip_address='172.16.0.16')
     vb.cpus = ENV.fetch('TFB_VB_CPU', 2)
 
     # The VirtualBox file system for shared folders (vboxfs)
-    # does not support posix's chown/chmod - these can only 
+    # does not support posix's chown/chmod - these can only
     # be set at mount time, and they are uniform for the entire
-    # shared directory. We require chown, because we have the 
+    # shared directory. We require chown, because we have the
     # testrunner user account, so this is a problem. To mitigate
-    # the effects, we set the folders and files to 777 permissions. 
-    # Even though we cannot chown them to testrunner, with 777 and 
-    # owner vagrant *most* of the software works ok. Occasional 
-    # issues are still possible. 
+    # the effects, we set the folders and files to 777 permissions.
+    # Even though we cannot chown them to testrunner, with 777 and
+    # owner vagrant *most* of the software works ok. Occasional
+    # issues are still possible.
     #
     # See mitchellh/vagrant#4997
     # See http://superuser.com/a/640028/136050
@@ -120,5 +120,36 @@ def provider_virtualbox(config, role, ip_address='172.16.0.16')
     if role.eql? "all" or role.eql? "app"
       override.vm.network :forwarded_port, guest: 8080, host: 28080
     end
+  end
+end
+
+def provider_google(config, role, ip_address='172.16.0.16')
+  config.vm.provider :google do |google, override|
+    override.vm.box = "dummy"
+    override.vm.box_url = "https://github.com/mitchellh/vagrant-google/raw/master/google.box"
+
+    override.ssh.username = ENV['TFB_GCE_SSH_USER']
+    override.ssh.private_key_path = ENV['TFB_GCE_SSH_PRIVATE_KEY_PATH']
+
+    google.google_project_id = ENV['TFB_GCE_PROJECT_ID']
+    google.google_client_email = ENV['TFB_GCE_SERVICE_ACCOUNT_EMAIL_ADDRESS']
+    google.google_json_key_location = ENV['TFB_GCE_PRIVATE_KEY_JSON_PATH']
+
+    zone_name = ENV.fetch('TFB_GCE_ZONE', 'us-central1-b')
+
+    google.zone = zone_name
+    google.zone_config zone_name do |zone1b|
+      zone1b.name = 'vagrant-tfb'
+      zone1b.image = 'ubuntu-1404-trusty-v20150625'
+      zone1b.machine_type = ENV.fetch('TFB_GCE_MACHINE_TYPE', 'n1-standard-4')
+      zone1b.zone = zone_name
+      zone1b.metadata = {}
+      zone1b.tags = []
+    end
+
+    if ENV.fetch('TFB_FORCE_SYNC', "false") == "true"
+      override.vm.synced_folder "../..", "/FrameworkBenchmarks"
+    end
+
   end
 end
